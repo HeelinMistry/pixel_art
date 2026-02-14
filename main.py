@@ -1,83 +1,73 @@
 import pygame
-import numpy as np
+import engine
+import renderer
 
 # --- Configuration ---
 WIDTH, HEIGHT = 800, 800
-CELL_SIZE = 10  # Increase this for "chunkier" pixels
+CELL_SIZE = 10
 ROWS, COLS = HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE
-
-# Colors (Feel free to change these for your "Art" style!)
-COLOR_BG = (10, 10, 10)
-COLOR_GRID = (40, 40, 40)
-COLOR_DIE = (170, 0, 0)
-COLOR_ALIVE = (0, 255, 150)
-
-
-def update(screen, cells, size, with_progress=False):
-    updated_cells = np.zeros((cells.shape[0], cells.shape[1]))
-
-    for row, col in np.ndindex(cells.shape):
-        # Calculate neighbors using a 3x3 slice
-        alive_neighbors = np.sum(cells[row - 1:row + 2, col - 1:col + 2]) - cells[row, col]
-        color = COLOR_BG if cells[row, col] == 0 else COLOR_ALIVE
-
-        # Conway's Rules
-        if cells[row, col] == 1:
-            if alive_neighbors < 2 or alive_neighbors > 3:
-                if with_progress:
-                    updated_cells[row, col] = 0
-            elif 2 <= alive_neighbors <= 3:
-                updated_cells[row, col] = 1
-                if with_progress: color = COLOR_ALIVE
-        else:
-            if alive_neighbors == 3:
-                updated_cells[row, col] = 1
-                if with_progress: color = COLOR_ALIVE
-
-        pygame.draw.rect(screen, color, (col * size, row * size, size - 1, size - 1))
-
-    return updated_cells
-
 
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    cells = np.zeros((ROWS, COLS))
-    screen.fill(COLOR_GRID)
-    update(screen, cells, CELL_SIZE)
-
-    pygame.display.flip()
     pygame.display.set_caption("Conway's Game of Life: Pixel Art Sandbox")
+    
+    # Initialize Grid
+    grid = engine.Grid(ROWS, COLS)
+    
+    # Initialize Renderer
+    rend = renderer.Renderer(CELL_SIZE)
 
+    render_mode = "classic"  # Options: "classic", "heatmap"
+    
     running = False
+    clock = pygame.time.Clock()
+
     while True:
+        # 1. Event Handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 return
 
-            # Use Mouse to Draw "Pixel Art"
-            if pygame.mouse.get_pressed()[0]:
-                pos = pygame.mouse.get_pos()
-                cells[pos[1] // CELL_SIZE, pos[0] // CELL_SIZE] = 1
-                update(screen, cells, CELL_SIZE)
-                pygame.display.update()
-
-            # Spacebar to Start/Stop the simulation
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_h:  # Press 'H' to toggle heatmap
+                    render_mode = "heatmap" if render_mode == "classic" else "classic"
+                
                 if event.key == pygame.K_SPACE:
                     running = not running
-                    update(screen, cells, CELL_SIZE)
-                    pygame.display.update()
+                
+                if event.key == pygame.K_c: # Clear grid
+                    grid.cells.fill(0)
+                    grid.heat_map.fill(0)
 
-        screen.fill(COLOR_GRID)
+            # Mouse Interaction
+            if pygame.mouse.get_pressed()[0]:
+                pos = pygame.mouse.get_pos()
+                # Ensure click is within bounds
+                if 0 <= pos[0] < WIDTH and 0 <= pos[1] < HEIGHT:
+                    col, row = pos[0] // CELL_SIZE, pos[1] // CELL_SIZE
+                    grid.set_cell(row, col, 1)
+            
+            if pygame.mouse.get_pressed()[2]: # Right click to erase
+                pos = pygame.mouse.get_pos()
+                if 0 <= pos[0] < WIDTH and 0 <= pos[1] < HEIGHT:
+                    col, row = pos[0] // CELL_SIZE, pos[1] // CELL_SIZE
+                    grid.set_cell(row, col, 0)
 
+        # 2. Update Logic
         if running:
-            cells = update(screen, cells, CELL_SIZE, with_progress=True)
-            pygame.display.update()
+            grid.update()
+            # Add a small delay or control update rate separately from frame rate if needed
+            # For now, we rely on clock.tick to limit speed, but simulation might be too fast at 60FPS.
+            # We can add a counter or time check here.
+            pygame.time.delay(50) 
 
-        pygame.time.delay(50)  # Controls simulation speed
-
+        # 3. Render
+        rend.draw(screen, grid.cells, grid.heat_map, mode=render_mode)
+        pygame.display.update()
+            
+        clock.tick(60) # Limit FPS
 
 if __name__ == "__main__":
     main()
