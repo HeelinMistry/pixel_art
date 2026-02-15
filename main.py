@@ -1,10 +1,11 @@
 import pygame
 import engine
 import renderer
+from assets import load_image_to_grid, load_sprite_centered
 
 # --- Configuration ---
-WIDTH, HEIGHT = 800, 800
-CELL_SIZE = 10
+WIDTH, HEIGHT = 1000, 1000
+CELL_SIZE = 5
 ROWS, COLS = HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE
 
 def main():
@@ -41,6 +42,15 @@ def main():
                     grid.cells.fill(0)
                     grid.heat_map.fill(0)
 
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_i:
+                        # Load the new pattern
+                        # new_pattern = load_image_to_grid("./assets/space-invaders-alien.png", ROWS, COLS)
+
+                        new_pattern = load_sprite_centered("./assets/space-invaders-alien.png", ROWS, COLS,
+                                                           target_size=(50, 50))
+                        grid.cells = new_pattern
+                        grid.heat_map = new_pattern.astype(float)\
             # Mouse Interaction
             if pygame.mouse.get_pressed()[0]:
                 pos = pygame.mouse.get_pos()
