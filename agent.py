@@ -36,14 +36,18 @@ class Agent(arcade.Sprite):
         self.think_delay = random.uniform(0.1, 0.4)
         self.time_since_think = random.uniform(0, self.think_delay)
 
-    def update(self, delta_time: float):
+    def update(self, delta_time: float, pathing_grid):  # Pass pathing_grid here
         target_x = self.grid_x * self.cell_dim + self.cell_dim // 2
         target_y = self.grid_y * self.cell_dim + self.cell_dim // 2
 
-        # Use the individual agent's speed modifier
-        self.center_x = arcade.math.lerp(self.center_x, target_x, self.move_speed)
-        self.center_y = arcade.math.lerp(self.center_y, target_y, self.move_speed)
+        # ROAD BONUS: Look up the path strength at the target
+        road_quality = pathing_grid[self.grid_x][self.grid_y]
 
+        # Speed is base speed + up to 0.20 bonus based on road quality
+        current_speed = self.move_speed + (road_quality * 0.20)
+
+        self.center_x = arcade.math.lerp(self.center_x, target_x, current_speed)
+        self.center_y = arcade.math.lerp(self.center_y, target_y, current_speed)
         self.time_since_think += delta_time
 
         # 2. Calculate how far the visual sprite is from the logical target

@@ -6,6 +6,7 @@ import arcade
 
 from agent import Agent, STATE_NOMAD, STATE_PIONEER, STATE_RESIDENT
 from environment import Environment
+from pathing_layer import PathingLayer
 from settlement import Settlement
 
 # --- Constants ---
@@ -33,6 +34,8 @@ class Simulation(arcade.Window):
 
         # 2. Visual Grid (The SpriteList)
         self.grid_sprites = arcade.SpriteList()
+        self.pathing_layer = PathingLayer(GRID_SIZE, GRID_SIZE)
+        self.path_sprites = arcade.SpriteList()
 
         # Create textures
         self.food_texture = arcade.make_circle_texture(
@@ -50,13 +53,18 @@ class Simulation(arcade.Window):
             for col in range(GRID_SIZE):
                 # Determine starting texture based on environment's grid
                 tex = self.food_texture if self.environment.grid[col][row] > 0 else self.empty_texture
-
                 # Create sprite with that texture
                 cell = arcade.Sprite(tex)
                 cell.center_x = col * CELL_DIM + CELL_DIM // 2
                 cell.center_y = row * CELL_DIM + CELL_DIM // 2
-
                 self.grid_sprites.append(cell)
+
+
+                sprite = arcade.SpriteSolidColor(CELL_DIM - 4, CELL_DIM - 4, arcade.color.GRAY)
+                sprite.center_x = col * CELL_DIM + CELL_DIM // 2
+                sprite.center_y = row * CELL_DIM + CELL_DIM // 2
+                sprite.alpha = 0  # Invisible by default
+                self.path_sprites.append(sprite)
 
         # 3. Agents
         self.agent_list = arcade.SpriteList()
@@ -123,9 +131,17 @@ class Simulation(arcade.Window):
                     if sprite.texture != self.empty_texture:
                         sprite.texture = self.empty_texture
 
+        self.pathing_layer.decay(0.0005)  # Slow decay
+        # Sync visual paths
+        for i, sprite in enumerate(self.path_sprites):
+            col = i % GRID_SIZE
+            row = i // GRID_SIZE
+            strength = self.pathing_layer.grid[col][row]
+            sprite.alpha = int(strength * 150)  # Max opacity 150 so it's subtle
+
         for agent in self.agent_list:
             # Agent.update returns True when a logic tick occurs
-            if agent.update(delta_time):
+            if agent.update(delta_time, pathing_grid=self.pathing_layer.grid):
                 # 1. Death Check
                 if agent.age > agent.max_age:
                     agent.remove_from_sprite_lists()
@@ -177,7 +193,7 @@ class Simulation(arcade.Window):
                         self.found_settlement(tx, ty, agent)
 
                 elif agent.state == STATE_RESIDENT:
-                    # NEW: Resident Logic
+                    self.pathing_layer.reinforce(agent.grid_x, agent.grid_y, 0.02)
                     if agent.inventory >= agent.inventory_cap:
                         # Pathfind home to deposit
                         dx = 0
@@ -200,6 +216,7 @@ class Simulation(arcade.Window):
                     else:
                         # 1. Harvest on the CURRENT cell first
                         ix, iy = int(agent.grid_x), int(agent.grid_y)
+                        self.pathing_layer.reinforce(ix, iy)
                         if self.environment.get_resource(ix, iy) > 0:
                             amount = self.environment.consume(ix, iy, agent.gather_rate)
                             agent.inventory += amount
