@@ -37,4 +37,3 @@ class QueenAgent(BaseAnt):
             from .worker import WorkerAgent
             new_worker = WorkerAgent(self.model)
             self.model.grid.place_agent(new_worker, self.pos)
-            print(f"New worker hatched at {self.pos}!")

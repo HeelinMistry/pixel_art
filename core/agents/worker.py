@@ -6,31 +6,34 @@ import math
 class WorkerAgent(BaseAnt):
     """
     A worker ant that uses pheromones to create trails to food sources.
+    Incorporates 'Exploration vs Exploitation' logic and food attraction zones.
     """
     def __init__(self, model):
         super().__init__(model)
         self.state = "FORAGING" # FORAGING, RETURNING
         self.max_pheromone = 10.0 # Intensity of pheromones it can lay
+        self.exploration_rate = 0.10 # Reduced slightly as attraction zone helps discovery
+        self.scent_radius = 4 # Radius at which ants can 'smell' food sources
 
     def step(self):
-        """Worker behavior: follow pheromones to find food, or return with food."""
+        """Worker behavior with attraction zones and pheromone tracking."""
         if not self.model: return
         super().step()
         
         # 1. State-Based Logic
         if self.state == "FORAGING":
-            # 2. Movement Logic: Follow Pheromones or Random Explore
+            # 2. Movement Logic: Follow Scent, Pheromones, or Random Explore
             new_pos = self.sense_and_move()
             if new_pos:
                 self.move_to(new_pos)
             
-            # 3. Foraging Check
+            # 3. Foraging Check (Immediate cell)
             cell_contents = self.model.grid.get_cell_list_contents([self.pos])
             for obj in cell_contents:
                 if isinstance(obj, FoodSource) and obj.amount > 0:
                     self.inventory = obj.harvest(self.inventory_cap)
                     self.state = "RETURNING"
-                    self.energy = min(self.energy + 20, 100)
+                    self.energy = 100
                     break
         
         elif self.state == "RETURNING":
@@ -66,22 +69,35 @@ class WorkerAgent(BaseAnt):
         if not neighbors: return self.pos
         random.shuffle(neighbors)
         
-        # 1. Immediate Check for food in adjacent cells
         for n in neighbors:
-            for obj in self.model.grid.get_cell_list_contents([n]):
+        # 1. SCENT CHECK: Can we smell food in a wider radius?
+        # This creates the 'attraction zone' around food sources.
+        nearby_cells = self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False, radius=self.scent_radius)
+        food_locations = []
+        for cell_pos in nearby_cells:
+            for obj in self.model.grid.get_cell_list_contents([cell_pos]):
                 if isinstance(obj, FoodSource) and obj.amount > 0:
-                    return n
+                    food_locations.append(cell_pos)
         
-        # 2. Weighted Random Choice based on Pheromone Levels
-        # Higher pheromones in a neighbor increase the chance of selection
+        if food_locations:
+            # Move towards the closest food source we smell
+            closest_food = min(food_locations, key=lambda f: math.dist(self.pos, f))
+            # Pick the neighbor that gets us closest to that food
+            best_n = min(neighbors, key=lambda n: math.dist(n, closest_food))
+            return best_n
+
+        # 2. EXPLORATION: Occasionally ignore pheromones to discover new areas
+        if random.random() < self.exploration_rate:
+            return random.choice(neighbors)
+        
+        # 3. PHEROMONE TRACKING: Weighted Choice based on Pheromone Levels
         neighbor_pheromones = []
         for n in neighbors:
             p_level = 0.0
             for obj in self.model.grid.get_cell_list_contents([n]):
                 if isinstance(obj, PheromoneCell):
                     p_level += obj.pheromone_level
-            # 0.1 baseline probability so they don't get 'stuck' without pheromones
+            # 0.1 baseline probability
             neighbor_pheromones.append(p_level + 0.1)
         
-        # Weighted choice: Higher pheromone = Higher probability
         return random.choices(neighbors, weights=neighbor_pheromones, k=1)[0]

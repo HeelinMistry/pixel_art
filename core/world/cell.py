@@ -8,7 +8,7 @@ class PheromoneCell(mesa.Agent):
     def __init__(self, model):
         super().__init__(model)
         self.pheromone_level = 0.0
-        self.decay_rate = 0.02 # Slow decay to keep trails alive longer
+        self.decay_rate = 0.03
         self.max_pheromone = 100.0
 
     def step(self):
@@ -33,8 +33,8 @@ class FoodSource(PheromoneCell):
 
     def step(self):
         super().step()
-        # Slow regrowth
-        if 0 < self.amount < self.initial_amount and random.random() < 0.01:
+        # Slow regrowth only if NOT completely depleted (optional behavior)
+        if 0 < self.amount < self.initial_amount and random.random() < 0.005:
             self.amount += 1
 
     def harvest(self, amount):
