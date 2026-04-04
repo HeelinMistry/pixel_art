@@ -7,8 +7,8 @@ class BaseAnt(mesa.Agent):
     def __init__(self, model):
         super().__init__(model) # unique_id is now automatically handled in Mesa 3.0+
         self.age = 0
-        self.max_age = 1000
-        self.energy = 50
+        self.max_age = 5000 # Increased max age to prevent premature death
+        self.energy = 100 # Increased starting energy
         self.inventory = 0
         self.inventory_cap = 5
         self.state = "IDLE" # IDLE, FORAGING, RETURNING, NURSING, etc.
@@ -16,7 +16,7 @@ class BaseAnt(mesa.Agent):
     def step(self):
         """Standard behavior for each tick."""
         self.age += 1
-        self.energy -= 1
+        self.energy -= 0.1 # Reduced energy consumption to prevent starvation too quickly
         
         # Check for death
         if self.energy <= 0 or self.age >= self.max_age:

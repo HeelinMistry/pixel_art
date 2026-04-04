@@ -10,7 +10,7 @@ class QueenAgent(BaseAnt):
         self.state = "REPRODUCING"
         self.energy = 500  # Queens are much hardier
         self.max_age = 5000 # Queens live a long time
-        self.egg_laying_rate = 0.1 # Probability of laying an egg per tick
+        self.egg_laying_rate = 0.05 # Probability of laying an egg per tick
 
     def step(self):
         """Queen behavior: lays eggs and consumes colony food."""
@@ -29,5 +29,12 @@ class QueenAgent(BaseAnt):
             self.lay_egg()
 
     def lay_egg(self):
-        """Adds to the model's brood count."""
+        """Adds to the model's brood count and occasionally spawns a new worker."""
         self.model.brood_count += 1
+        
+        # Every 10 eggs (on average), hatch a new worker
+        if random.random() < 0.2:
+            from .worker import WorkerAgent
+            new_worker = WorkerAgent(self.model)
+            self.model.grid.place_agent(new_worker, self.pos)
+            print(f"New worker hatched at {self.pos}!")

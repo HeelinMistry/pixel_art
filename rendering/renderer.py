@@ -41,42 +41,36 @@ def make_hex_texture(radius, color):
 
 class AntRenderer(arcade.Window):
     def __init__(self, width, height, grid_resolution):
-        super().__init__(width, height, "Mesa 3.0+ Full-Screen Hex Sim")
+        super().__init__(width, height, "Mesa 3.0+ Full-Screen Ant Sim")
         arcade.set_background_color(arcade.color.BLACK)
 
-        # 1. Calculate Hex Radius based on grid_resolution (e.g., number of cells in a column)
-        # We want 'grid_resolution' hexes to fit exactly in the SCREEN_HEIGHT
-        # SCREEN_HEIGHT = (grid_resolution + 0.5) * sqrt(3) * R
+        # 1. Geometry Calculation
         self.hex_radius = SCREEN_HEIGHT / (math.sqrt(3) * (grid_resolution + 0.5))
-        
-        # Internal distances
         self.horiz_dist = 1.5 * self.hex_radius
         self.vert_dist = math.sqrt(3) * self.hex_radius
         
-        # 2. Determine Number of Columns to fill SCREEN_WIDTH
-        # SCREEN_WIDTH = (cols - 1) * 1.5 * R + 2 * R = (1.5 * cols + 0.5) * R
         cols = int((SCREEN_WIDTH / self.hex_radius - 0.5) / 1.5)
         rows = grid_resolution
         
-        # 3. Initialize Mesa Model with Dynamic dimensions
+        # 2. Initialize Mesa Model
         model_params = {
             "width": cols,
             "height": rows,
-            "initial_workers": 10
+            "initial_workers": 15
         }
         self.model = AntColonyModel(**model_params)
         
-        # 4. Calculate Render Offsets to Center the Grid
+        # 3. Offsets for Centering
         actual_width = (1.5 * cols + 0.5) * self.hex_radius
         actual_height = (rows + 0.5) * self.vert_dist
         self.offset_x = (SCREEN_WIDTH - actual_width) / 2
         self.offset_y = (SCREEN_HEIGHT - actual_height) / 2
         
-        # 5. Sprite Lists
+        # 4. Sprite Lists
         self.grid_sprites = arcade.SpriteList()
         self.agent_sprites = arcade.SpriteList()
         
-        # Pre-generate textures using the calculated radius
+        # Pre-generate textures
         self.nest_tex = make_hex_texture(self.hex_radius - 1, COLOR_NEST)
         self.food_tex = make_hex_texture(self.hex_radius - 1, COLOR_FOOD)
         self.empty_tex = make_hex_texture(self.hex_radius - 1, COLOR_EMPTY)
@@ -87,7 +81,7 @@ class AntRenderer(arcade.Window):
         self.queen_tex = make_hex_texture(agent_r * 1.5, COLOR_QUEEN)
         self.drone_tex = make_hex_texture(agent_r, COLOR_DRONE)
 
-        # 6. Create Grid Sprites
+        # 5. Create Grid Sprites
         self.sprite_map = {} 
         for x in range(self.model.width):
             for y in range(self.model.height):
@@ -96,11 +90,9 @@ class AntRenderer(arcade.Window):
                 self.grid_sprites.append(sprite)
                 self.sprite_map[(x, y)] = sprite
                 
-        # 7. Agent Mapping
         self.agent_map = {}
 
     def get_pixel_pos(self, x, y):
-        """Calculates centered pixel position."""
         px = x * self.horiz_dist + self.hex_radius + self.offset_x
         py = y * self.vert_dist + (self.vert_dist / 2) + self.offset_y
         if x % 2 == 1:
@@ -112,13 +104,11 @@ class AntRenderer(arcade.Window):
         self.grid_sprites.draw()
         self.agent_sprites.draw()
         
-        # UI Overlay
         display_text = (
             f"Step: {self.model.steps}\n"
-            f"Resolution: {self.model.height}x{self.model.width}\n"
+            f"Population: {len(self.model.agents)}\n"
             f"Food: {int(self.model.food_stockpile)}\n"
-            f"Brood: {self.model.brood_count}\n"
-            f"Population: {len(self.model.agents)}"
+            f"Brood: {self.model.brood_count}"
         )
         arcade.draw_text(display_text, 10, SCREEN_HEIGHT - 20, 
                          arcade.color.WHITE, 12, multiline=True, width=300)
@@ -135,10 +125,10 @@ class AntRenderer(arcade.Window):
                 elif isinstance(agent, NestCell):
                     sprite.texture = self.nest_tex
                 
-                # Visual pheromones
+                # Visual pheromones (Enhanced visibility)
                 if agent.pheromone_level > 0:
-                    intensity = min(255, int(agent.pheromone_level * 5))
-                    sprite.color = (255, 255 - intensity, 255 - intensity)
+                    intensity = min(200, int(agent.pheromone_level * 15))
+                    sprite.color = (255, 255, 255 - intensity)
                 else:
                     sprite.color = (255, 255, 255)
         
@@ -148,22 +138,29 @@ class AntRenderer(arcade.Window):
             if not isinstance(agent, (WorkerAgent, QueenAgent, DroneAgent)):
                 continue
                 
+            # If new agent, initialize its position correctly
             if agent not in self.agent_map:
                 tex = self.worker_tex
                 if isinstance(agent, QueenAgent): tex = self.queen_tex
                 elif isinstance(agent, DroneAgent): tex = self.drone_tex
                 
                 sprite = arcade.Sprite(tex)
+                
+                # SET INITIAL POSITION IMMEDIATELY to prevent "running from (0,0)"
+                if agent.pos:
+                    tx, ty = self.get_pixel_pos(agent.pos[0], agent.pos[1])
+                    sprite.center_x, sprite.center_y = tx, ty
+                
                 self.agent_map[agent] = sprite
                 self.agent_sprites.append(sprite)
             
+            # Smooth movement for established agents
             sprite = self.agent_map[agent]
             if agent.pos:
                 tx, ty = self.get_pixel_pos(agent.pos[0], agent.pos[1])
                 sprite.center_x = arcade.math.lerp(sprite.center_x, tx, 0.2)
                 sprite.center_y = arcade.math.lerp(sprite.center_y, ty, 0.2)
             
-        # Remove dead agents
         mapped_agents = list(self.agent_map.keys())
         for agent in mapped_agents:
             if agent not in active_agents:

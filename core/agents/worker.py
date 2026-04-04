@@ -24,7 +24,7 @@ class WorkerAgent(BaseAnt):
             if new_pos:
                 self.move_to(new_pos)
             
-            # 3. Foraging Check
+            # 3. Foraging
             cell_contents = self.model.grid.get_cell_list_contents([self.pos])
             for obj in cell_contents:
                 if isinstance(obj, FoodSource) and obj.amount > 0:
