@@ -1,49 +1,43 @@
 import mesa
 import random
 
-class EnvironmentalAgent(mesa.Agent):
+class PheromoneCell(mesa.Agent):
     """
-    Base class for static environmental objects in the grid.
+    Every cell on the grid has this agent to manage pheromones.
     """
     def __init__(self, model):
         super().__init__(model)
         self.pheromone_level = 0.0
+        self.decay_rate = 0.02 # Slow decay to keep trails alive longer
         self.max_pheromone = 100.0
-        self.decay_rate = 0.05
 
     def step(self):
-        """Decay pheromones over time."""
+        """Naturally decay pheromones over time."""
         if self.pheromone_level > 0:
             self.pheromone_level = max(0, self.pheromone_level - self.decay_rate)
 
     def add_pheromone(self, amount):
         self.pheromone_level = min(self.max_pheromone, self.pheromone_level + amount)
 
-class NestCell(EnvironmentalAgent):
-    """
-    A cell representing part of the colony's nest.
-    """
-    def __init__(self, model, cell_type="nest"):
+class NestCell(PheromoneCell):
+    """A cell belonging to the nest."""
+    def __init__(self, model):
         super().__init__(model)
-        self.cell_type = cell_type # 'nest', 'tunnel', 'chamber'
 
-class FoodSource(EnvironmentalAgent):
-    """
-    A cell representing a food resource outside the nest.
-    """
+class FoodSource(PheromoneCell):
+    """A cell containing food resources."""
     def __init__(self, model, amount=100):
         super().__init__(model)
-        self.amount = amount 
+        self.amount = amount
         self.initial_amount = amount
 
     def step(self):
         super().step()
-        # Food source might regrow very slowly if not empty
+        # Slow regrowth
         if 0 < self.amount < self.initial_amount and random.random() < 0.01:
             self.amount += 1
 
     def harvest(self, amount):
-        """Ant calls this to gather food."""
         gathered = min(self.amount, amount)
         self.amount -= gathered
         return gathered

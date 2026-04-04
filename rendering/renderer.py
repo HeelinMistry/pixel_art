@@ -6,7 +6,7 @@ from core.model import AntColonyModel
 from core.agents.worker import WorkerAgent
 from core.agents.queen import QueenAgent
 from core.agents.drone import DroneAgent
-from core.world.cell import FoodSource, NestCell
+from core.world.cell import FoodSource, NestCell, PheromoneCell
 
 # Constants
 SCREEN_WIDTH = 1000
@@ -56,7 +56,7 @@ class AntRenderer(arcade.Window):
         model_params = {
             "width": cols,
             "height": rows,
-            "initial_workers": 15
+            "initial_workers": 20
         }
         self.model = AntColonyModel(**model_params)
         
@@ -107,8 +107,8 @@ class AntRenderer(arcade.Window):
         display_text = (
             f"Step: {self.model.steps}\n"
             f"Population: {len(self.model.agents)}\n"
-            f"Food: {int(self.model.food_stockpile)}\n"
-            f"Brood: {self.model.brood_count}"
+            f"Food Stockpile: {int(self.model.food_stockpile)}\n"
+            f"Brood Count: {self.model.brood_count}"
         )
         arcade.draw_text(display_text, 10, SCREEN_HEIGHT - 20, 
                          arcade.color.WHITE, 12, multiline=True, width=300)
@@ -118,19 +118,28 @@ class AntRenderer(arcade.Window):
         
         # Update Grid Visuals
         for agent in self.model.agents:
-            if isinstance(agent, (FoodSource, NestCell)):
+            if isinstance(agent, PheromoneCell):
+                if not agent.pos: continue
                 sprite = self.sprite_map[agent.pos]
-                if isinstance(agent, FoodSource) and agent.amount > 0:
-                    sprite.texture = self.food_tex
+                
+                # 1. Base Texture Logic
+                if isinstance(agent, FoodSource):
+                    if agent.amount > 0:
+                        sprite.texture = self.food_tex
+                    else:
+                        sprite.texture = self.empty_tex # VISUAL DECAY: Turn empty when depleted
                 elif isinstance(agent, NestCell):
                     sprite.texture = self.nest_tex
-                
-                # Visual pheromones (Enhanced visibility)
+                else:
+                    sprite.texture = self.empty_tex
+
+                # 2. Pheromone Overlay (Tinting)
                 if agent.pheromone_level > 0:
-                    intensity = min(200, int(agent.pheromone_level * 15))
+                    # Tint towards a glowing yellow/amber
+                    intensity = min(255, int(agent.pheromone_level * 10))
                     sprite.color = (255, 255, 255 - intensity)
                 else:
-                    sprite.color = (255, 255, 255)
+                    sprite.color = (255, 255, 255) # Reset to default
         
         # Sync Agent Sprites
         active_agents = set(self.model.agents)
@@ -138,15 +147,12 @@ class AntRenderer(arcade.Window):
             if not isinstance(agent, (WorkerAgent, QueenAgent, DroneAgent)):
                 continue
                 
-            # If new agent, initialize its position correctly
             if agent not in self.agent_map:
                 tex = self.worker_tex
                 if isinstance(agent, QueenAgent): tex = self.queen_tex
                 elif isinstance(agent, DroneAgent): tex = self.drone_tex
                 
                 sprite = arcade.Sprite(tex)
-                
-                # SET INITIAL POSITION IMMEDIATELY to prevent "running from (0,0)"
                 if agent.pos:
                     tx, ty = self.get_pixel_pos(agent.pos[0], agent.pos[1])
                     sprite.center_x, sprite.center_y = tx, ty
@@ -154,7 +160,6 @@ class AntRenderer(arcade.Window):
                 self.agent_map[agent] = sprite
                 self.agent_sprites.append(sprite)
             
-            # Smooth movement for established agents
             sprite = self.agent_map[agent]
             if agent.pos:
                 tx, ty = self.get_pixel_pos(agent.pos[0], agent.pos[1])
