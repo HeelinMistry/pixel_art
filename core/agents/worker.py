@@ -69,7 +69,6 @@ class WorkerAgent(BaseAnt):
         if not neighbors: return self.pos
         random.shuffle(neighbors)
         
-        for n in neighbors:
         # 1. SCENT CHECK: Can we smell food in a wider radius?
         # This creates the 'attraction zone' around food sources.
         nearby_cells = self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False, radius=self.scent_radius)
