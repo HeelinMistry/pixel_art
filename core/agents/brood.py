@@ -14,10 +14,10 @@ class BroodAgent(mesa.Agent):
         self.development_timer = 0
         self.fed_status = 0 # For larvae: how much food they've received
 
-        # Development thresholds (tunable)
-        self.egg_to_larva_time = 50
-        self.larva_to_pupa_food_needed = 5 # How many "feedings" a larva needs
-        self.pupa_to_adult_time = 100
+        # Development thresholds (tuned for better simulation feedback)
+        self.egg_to_larva_time = 30
+        self.larva_to_pupa_food_needed = 3 
+        self.pupa_to_adult_time = 60
 
     def step(self):
         """Handles the development of the brood through its stages."""
@@ -28,21 +28,15 @@ class BroodAgent(mesa.Agent):
                 self.stage = "LARVA"
                 self.development_timer = 0
                 self.fed_status = 0
-                # print(f"Brood {self.unique_id} hatched into LARVA.")
 
         elif self.stage == "LARVA":
-            # Larvae need to be fed by workers
-            # Development timer here tracks how long it's been a larva
-            # Fed status tracks how much food it has received
             if self.fed_status >= self.larva_to_pupa_food_needed:
                 self.stage = "PUPA"
                 self.development_timer = 0
-                # print(f"Brood {self.unique_id} pupated into PUPA.")
 
         elif self.stage == "PUPA":
             if self.development_timer >= self.pupa_to_adult_time:
                 self.hatch()
-                # print(f"Brood {self.unique_id} hatched into ADULT.")
 
     def feed(self, amount=1):
         """Increases the fed status of a larva."""
@@ -53,16 +47,14 @@ class BroodAgent(mesa.Agent):
 
     def hatch(self):
         """Transforms the pupa into an adult ant and removes itself."""
-        # Import WorkerAgent and DroneAgent locally to avoid circular dependency
         from .worker import WorkerAgent
         from .drone import DroneAgent
 
-        # Determine what kind of ant hatches based on colony phase or other factors
         new_ant = None
-        if self.model.phase == "REPRODUCTIVE" and random.random() < 0.1: # 10% chance for drone in reproductive phase
+        if self.model.phase == "REPRODUCTIVE" and random.random() < 0.1: 
             new_ant = DroneAgent(self.model)
-        else: # Otherwise, always a worker for now
+        else: 
             new_ant = WorkerAgent(self.model)
             
         self.model.grid.place_agent(new_ant, self.pos)
-        self.remove() # In Mesa 3.0+, simply call self.remove() to remove from model and grid
+        self.remove()

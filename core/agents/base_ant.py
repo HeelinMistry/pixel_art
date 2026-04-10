@@ -4,6 +4,7 @@ class BaseAnt(mesa.Agent):
     """
     A base class for all ant castes using Mesa 3.0+ features.
     Incorporates basic physiology: energy, health, and metabolism.
+    Includes Trophallaxis (Social Feeding).
     """
     def __init__(self, model):
         super().__init__(model)
@@ -18,11 +19,11 @@ class BaseAnt(mesa.Agent):
         
         # Rates
         self.metabolism_rate = 0.1
-        self.starvation_rate = 0.5 # Health loss per tick when energy is 0
-        self.recovery_rate = 0.2    # Health gain per tick when energy > 50
+        self.starvation_rate = 0.5 
+        self.recovery_rate = 0.2    
         
-        self.inventory = 0
-        self.inventory_cap = 5
+        self.inventory = 0.0
+        self.inventory_cap = 5.0
         self.state = "IDLE"
 
     def step(self):
@@ -37,9 +38,8 @@ class BaseAnt(mesa.Agent):
             self.energy = 0
             self.health -= self.starvation_rate
         elif self.health < self.max_health and self.energy > (self.max_energy * 0.5):
-            # Slow recovery when well-fed
             self.health = min(self.max_health, self.health + self.recovery_rate)
-            self.energy -= self.recovery_rate # Recovery costs extra energy
+            self.energy -= self.recovery_rate 
         
         # 3. Death Check
         if self.health <= 0 or self.age >= self.max_age:
@@ -53,14 +53,14 @@ class BaseAnt(mesa.Agent):
         """Helper to move the agent on the Mesa grid."""
         self.model.grid.move_agent(self, new_pos)
 
-    def eat(self, amount=1):
+    def eat(self, amount=1.0):
         """
         Consumes food to restore energy. 
         Returns the amount actually consumed based on hunger.
         """
         needed = self.max_energy - self.energy
         if needed <= 0:
-            return 0
+            return 0.0
             
         # 1 unit of food = 20 units of energy (tunable)
         can_eat = amount
@@ -68,3 +68,40 @@ class BaseAnt(mesa.Agent):
         
         self.energy += will_eat * 20.0
         return will_eat
+
+    def give_food(self, recipient, amount):
+        """
+        Socially shares food (Trophallaxis).
+        'amount' is from the donor's inventory.
+        """
+        if self.inventory <= 0: return 0.0
+        
+        to_give = min(amount, self.inventory)
+        
+        # Check if recipient can take it
+        if hasattr(recipient, 'receive_food'):
+            actual_received = recipient.receive_food(to_give)
+            self.inventory -= actual_received
+            return actual_received
+        return 0.0
+
+    def receive_food(self, amount):
+        """
+        Receives food via Trophallaxis. 
+        If it can't fit in inventory, it's eaten immediately.
+        """
+        # 1. First, satisfy immediate hunger
+        needed_energy = self.max_energy - self.energy
+        can_eat = min(amount, needed_energy / 20.0)
+        self.energy += can_eat * 20.0
+        
+        remaining = amount - can_eat
+        
+        # 2. Store rest in inventory if possible
+        if hasattr(self, 'inventory_cap'):
+            space = self.inventory_cap - self.inventory
+            can_store = min(remaining, space)
+            self.inventory += can_store
+            return can_eat + can_store
+            
+        return can_eat

@@ -5,7 +5,7 @@ import random
 class QueenAgent(BaseAnt):
     """
     The heart of the colony using Mesa 3.0+ features.
-    Behavior is influenced by colony phase.
+    Behavior is influenced by colony phase and localized feeding.
     """
     def __init__(self, model):
         super().__init__(model)
@@ -25,11 +25,17 @@ class QueenAgent(BaseAnt):
         super().step()
         if self.health <= 0: return
 
+        # 1. Localized Self-Preservation (withdraw from NestCell)
         if self.energy < (self.max_energy * 0.8):
-            if self.model.food_stockpile > 1.0:
-                eaten = self.eat(amount=1.0)
-                self.model.food_stockpile -= eaten
+            cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+            for obj in cell_contents:
+                from core.world.cell import NestCell
+                if isinstance(obj, NestCell):
+                    withdrawn = obj.withdraw_food(1.0)
+                    self.eat(amount=withdrawn)
+                    break
             
+        # 2. Dynamic Reproduction
         egg_rate = self.calculate_egg_rate()
         if self.state == "REPRODUCING" and random.random() < egg_rate:
             if self.energy > self.lay_egg_cost:
@@ -37,18 +43,25 @@ class QueenAgent(BaseAnt):
                 self.energy -= self.lay_egg_cost
 
     def calculate_egg_rate(self):
+        # Dynamically scale rate based on local nest food (Queen smells the stockpile)
+        local_food = 0
+        cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+        for obj in cell_contents:
+            from core.world.cell import NestCell
+            if isinstance(obj, NestCell):
+                local_food = obj.stored_food
+                break
+
         rate = self.base_egg_laying_rate
-        if self.model.phase == "ERGONOMIC":
-            rate *= 2.0
-        elif self.model.phase == "REPRODUCTIVE":
-            rate *= 1.5
-        if self.model.food_stockpile < 50:
-            rate *= 0.2
-        elif self.model.food_stockpile < 100:
-            rate *= 0.5
+        if self.model.phase == "ERGONOMIC": rate *= 2.0
+        elif self.model.phase == "REPRODUCTIVE": rate *= 1.5
+        
+        # Scale by food
+        if local_food < 10: rate *= 0.2
+        elif local_food < 25: rate *= 0.5
         return rate
 
     def lay_egg(self):
-        """Creates a new BroodAgent (egg). Mesa 3.0 automatically tracks it."""
+        """Creates a new BroodAgent (egg)."""
         new_brood = BroodAgent(self.model, stage="EGG")
         self.model.grid.place_agent(new_brood, self.pos)
