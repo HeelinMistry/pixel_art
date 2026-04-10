@@ -92,9 +92,11 @@ class AntRenderer(arcade.Window):
 
         # Fixed Population Counter
         ant_count = len([a for a in self.model.agents if isinstance(a, BaseAnt)])
+        # Use total_food_stockpile property instead of food_stockpile attribute
         display_text = (f"Step: {self.model.steps}\n"
+                        f"Phase: {self.model.phase}\n"
                         f"Active Ants: {ant_count}\n"
-                        f"Food Stockpile: {int(self.model.food_stockpile)}\n"
+                        f"Food Stockpile: {int(self.model.total_food_stockpile)}\n"
                         f"Brood Count: {self.model.brood_count}")
         arcade.draw_text(display_text, 10, SCREEN_HEIGHT - 20, arcade.color.WHITE, 12, multiline=True, width=300)
 
@@ -113,6 +115,8 @@ class AntRenderer(arcade.Window):
                 sprite.texture = self.food_tex
             elif nest:
                 sprite.texture = self.nest_tex
+                # Optional: Visualize food storage in nest cells by darkening color?
+                # current_stored = nest.stored_food / nest.food_capacity
             else:
                 sprite.texture = self.empty_tex
 
